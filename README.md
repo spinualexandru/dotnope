@@ -21,7 +21,7 @@ npm install strictenv
 require('strictenv').enableStrictEnv();
 ```
 
-```json
+```json5
 // package.json - whitelist what each package can access
 {
   "environmentWhitelist": {
