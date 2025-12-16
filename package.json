@@ -1,10 +1,10 @@
 {
-  "name": "strictenv",
+  "name": "dotnope",
   "version": "1.0.0",
   "author": "Alex Spinu",
   "repository": {
     "type": "git",
-    "url": "
+    "url": "git+https://github.com/spinualexandru/dotnope.git"
   },
   "description": "Strict environment variable access control for Node.js",
   "main": "index.js",

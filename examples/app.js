@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 'use strict';
 
-// Enable strictenv FIRST - before any other requires
-const strictenv = require('../index');
-strictenv.enableStrictEnv();
+// Enable dotnope FIRST - before any other requires
+const dotnope = require('../index');
+dotnope.enableStrictEnv();
 
 // Set some fake secrets (in real apps these come from your environment)
 process.env.AWS_SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
@@ -17,7 +17,7 @@ const config = require('legit-config');
 const analytics = require('sketchy-analytics');
 
 console.log('='.repeat(60));
-console.log('strictenv example');
+console.log('dotnope example');
 console.log('='.repeat(60));
 console.log();
 
@@ -34,7 +34,7 @@ try {
     console.log('[app] Analytics completed (THIS SHOULD NOT HAPPEN)\n');
 } catch (err) {
     console.log('!'.repeat(60));
-    console.log('BLOCKED! strictenv caught the malicious access:');
+    console.log('BLOCKED! dotnope caught the malicious access:');
     console.log('!'.repeat(60));
     console.log();
     console.log(`Error code: ${err.code}`);
@@ -44,4 +44,4 @@ try {
     console.log('Your secrets are safe.');
 }
 
-strictenv.disableStrictEnv();
+dotnope.disableStrictEnv();

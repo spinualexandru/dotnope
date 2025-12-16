@@ -27,25 +27,25 @@ function cleanup(fixturesDir) {
     }
 }
 
-// Clear strictenv module cache
-function clearStrictenvCache() {
+// Clear dotnope module cache
+function clearDotnopeCache() {
     Object.keys(require.cache).forEach(key => {
-        if (key.includes('strictenv') && !key.includes('node_modules')) {
+        if (key.includes('dotnope') && !key.includes('node_modules')) {
             delete require.cache[key];
         }
     });
 }
 
-describe('strictenv', () => {
+describe('dotnope', () => {
     let originalEnv;
 
     beforeEach(() => {
-        clearStrictenvCache();
+        clearDotnopeCache();
         originalEnv = { ...process.env };
     });
 
     afterEach(() => {
-        clearStrictenvCache();
+        clearDotnopeCache();
         process.env = originalEnv;
     });
 
@@ -58,15 +58,15 @@ describe('strictenv', () => {
                     environmentWhitelist: {}
                 });
 
-                const strictenv = require('../index');
-                const handle = strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                const handle = dotnope.enableStrictEnv({ configPath: pkgPath });
 
                 assert.ok(handle);
                 assert.strictEqual(typeof handle.disable, 'function');
                 assert.strictEqual(typeof handle.getAccessStats, 'function');
-                assert.strictEqual(strictenv.isEnabled(), true);
+                assert.strictEqual(dotnope.isEnabled(), true);
 
-                strictenv.disableStrictEnv();
+                dotnope.disableStrictEnv();
             } finally {
                 cleanup(fixturesDir);
             }
@@ -85,13 +85,13 @@ describe('strictenv', () => {
                 console.warn = (msg) => warnMessages.push(msg);
 
                 try {
-                    const strictenv = require('../index');
-                    strictenv.enableStrictEnv({ configPath: pkgPath });
-                    strictenv.enableStrictEnv({ configPath: pkgPath });
+                    const dotnope = require('../index');
+                    dotnope.enableStrictEnv({ configPath: pkgPath });
+                    dotnope.enableStrictEnv({ configPath: pkgPath });
 
                     assert.ok(warnMessages.some(m => m.includes('Already enabled')));
 
-                    strictenv.disableStrictEnv();
+                    dotnope.disableStrictEnv();
                 } finally {
                     console.warn = originalWarn;
                 }
@@ -112,13 +112,13 @@ describe('strictenv', () => {
 
                 process.env.TEST_VAR = 'test-value';
 
-                const strictenv = require('../index');
-                strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                dotnope.enableStrictEnv({ configPath: pkgPath });
 
                 // Main app should always have access
                 assert.strictEqual(process.env.TEST_VAR, 'test-value');
 
-                strictenv.disableStrictEnv();
+                dotnope.disableStrictEnv();
             } finally {
                 cleanup(fixturesDir);
             }
@@ -138,13 +138,13 @@ describe('strictenv', () => {
 
                 process.env.TEST_VAR = 'allowed-value';
 
-                const strictenv = require('../index');
-                strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                dotnope.enableStrictEnv({ configPath: pkgPath });
 
                 // Should be able to access
                 assert.strictEqual(process.env.TEST_VAR, 'allowed-value');
 
-                strictenv.disableStrictEnv();
+                dotnope.disableStrictEnv();
             } finally {
                 cleanup(fixturesDir);
             }
@@ -165,13 +165,13 @@ describe('strictenv', () => {
                 process.env.ANY_VAR = 'any-value';
                 process.env.ANOTHER_VAR = 'another-value';
 
-                const strictenv = require('../index');
-                strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                dotnope.enableStrictEnv({ configPath: pkgPath });
 
                 assert.strictEqual(process.env.ANY_VAR, 'any-value');
                 assert.strictEqual(process.env.ANOTHER_VAR, 'another-value');
 
-                strictenv.disableStrictEnv();
+                dotnope.disableStrictEnv();
             } finally {
                 cleanup(fixturesDir);
             }
@@ -190,13 +190,13 @@ describe('strictenv', () => {
                 process.env.TEST_VAR = 'test';
                 process.env.OTHER_VAR = 'other';
 
-                const strictenv = require('../index');
-                strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                dotnope.enableStrictEnv({ configPath: pkgPath });
 
                 assert.strictEqual(process.env.TEST_VAR, 'test');
                 assert.strictEqual(process.env.OTHER_VAR, 'other');
 
-                strictenv.disableStrictEnv();
+                dotnope.disableStrictEnv();
             } finally {
                 cleanup(fixturesDir);
             }
@@ -212,14 +212,14 @@ describe('strictenv', () => {
                     environmentWhitelist: {}
                 });
 
-                const strictenv = require('../index');
-                const handle = strictenv.enableStrictEnv({ configPath: pkgPath });
+                const dotnope = require('../index');
+                const handle = dotnope.enableStrictEnv({ configPath: pkgPath });
 
-                assert.strictEqual(strictenv.isEnabled(), true);
+                assert.strictEqual(dotnope.isEnabled(), true);
 
                 handle.disable();
 
-                assert.strictEqual(strictenv.isEnabled(), false);
+                assert.strictEqual(dotnope.isEnabled(), false);
             } finally {
                 cleanup(fixturesDir);
             }
@@ -228,9 +228,9 @@ describe('strictenv', () => {
 
     describe('hasNativeModule', () => {
         test('should report native module availability', () => {
-            const strictenv = require('../index');
+            const dotnope = require('../index');
             // This just tests the function exists and returns a boolean
-            const result = strictenv.hasNativeModule();
+            const result = dotnope.hasNativeModule();
             assert.strictEqual(typeof result, 'boolean');
         });
     });
@@ -238,7 +238,7 @@ describe('strictenv', () => {
 
 describe('config-loader', () => {
     afterEach(() => {
-        clearStrictenvCache();
+        clearDotnopeCache();
     });
 
     test('should throw if no package.json found', () => {
@@ -287,7 +287,7 @@ describe('stack-parser', () => {
     let stackParser;
 
     beforeEach(() => {
-        clearStrictenvCache();
+        clearDotnopeCache();
         stackParser = require('../lib/stack-parser');
     });
 
@@ -329,7 +329,7 @@ describe('dependency-resolver', () => {
     let depResolver;
 
     beforeEach(() => {
-        clearStrictenvCache();
+        clearDotnopeCache();
         depResolver = require('../lib/dependency-resolver');
     });
 

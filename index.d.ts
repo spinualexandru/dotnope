@@ -55,7 +55,7 @@ export interface EnvironmentWhitelistConfig {
  * Error thrown when unauthorized environment access is detected
  */
 export interface StrictEnvError extends Error {
-    code: 'ERR_STRICTENV_UNAUTHORIZED';
+    code: 'ERR_DOTNOPE_UNAUTHORIZED';
     packageName: string;
     envVar: string;
     fileName: string;
@@ -81,7 +81,7 @@ export interface StrictEnvError extends Error {
  * @example
  * ```javascript
  * // In your app's entry point (must be first!)
- * const { enableStrictEnv } = require('strictenv');
+ * const { enableStrictEnv } = require('dotnope');
  * enableStrictEnv();
  *
  * // Now load other modules

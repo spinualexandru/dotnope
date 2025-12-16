@@ -1,9 +1,9 @@
 {
   "targets": [
     {
-      "target_name": "strictenv_native",
+      "target_name": "dotnope_native",
       "sources": [
-        "src/strictenv_native.cc"
+        "src/dotnope_native.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"

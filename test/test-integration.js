@@ -13,11 +13,11 @@ function getUniqueFixturesDir() {
 }
 
 /**
- * Clear all strictenv-related require caches
+ * Clear all dotnope-related require caches
  */
 function clearRequireCache() {
     Object.keys(require.cache).forEach(key => {
-        if (key.includes('strictenv') || key.includes('fixtures')) {
+        if (key.includes('dotnope') || key.includes('fixtures')) {
             delete require.cache[key];
         }
     });
@@ -101,8 +101,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.SECRET_KEY = 'super-secret';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -110,13 +110,13 @@ describe('integration tests', { concurrency: false }, () => {
             assert.throws(() => {
                 fakePackage.getEnvVar('SECRET_KEY');
             }, (err) => {
-                assert.strictEqual(err.code, 'ERR_STRICTENV_UNAUTHORIZED');
+                assert.strictEqual(err.code, 'ERR_DOTNOPE_UNAUTHORIZED');
                 assert.strictEqual(err.packageName, 'fake-package');
                 assert.strictEqual(err.envVar, 'SECRET_KEY');
                 return true;
             });
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }
@@ -135,8 +135,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.ALLOWED_VAR = 'allowed-value';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -144,7 +144,7 @@ describe('integration tests', { concurrency: false }, () => {
             const value = fakePackage.getEnvVar('ALLOWED_VAR');
             assert.strictEqual(value, 'allowed-value');
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }
@@ -164,8 +164,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.FORBIDDEN_VAR = 'forbidden';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -177,12 +177,12 @@ describe('integration tests', { concurrency: false }, () => {
             assert.throws(() => {
                 fakePackage.getEnvVar('FORBIDDEN_VAR');
             }, (err) => {
-                assert.strictEqual(err.code, 'ERR_STRICTENV_UNAUTHORIZED');
+                assert.strictEqual(err.code, 'ERR_DOTNOPE_UNAUTHORIZED');
                 assert.strictEqual(err.envVar, 'FORBIDDEN_VAR');
                 return true;
             });
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }
@@ -196,8 +196,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.MY_SECRET = 'secret';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -211,7 +211,7 @@ describe('integration tests', { concurrency: false }, () => {
                 assert.ok(err.message.includes('"MY_SECRET"'), `Message should include env var name`);
             }
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }
@@ -227,8 +227,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.CHECK_VAR = 'exists';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -237,19 +237,19 @@ describe('integration tests', { concurrency: false }, () => {
             assert.throws(() => {
                 fakePackage.checkEnvVar('CHECK_VAR');
             }, (err) => {
-                assert.strictEqual(err.code, 'ERR_STRICTENV_UNAUTHORIZED');
+                assert.strictEqual(err.code, 'ERR_DOTNOPE_UNAUTHORIZED');
                 return true;
             });
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }
     });
 
     test('native module should be loaded', () => {
-        const strictenv = require('../index');
-        assert.strictEqual(strictenv.hasNativeModule(), true);
+        const dotnope = require('../index');
+        assert.strictEqual(dotnope.hasNativeModule(), true);
     });
 
     test('should track access stats with native module', () => {
@@ -265,8 +265,8 @@ describe('integration tests', { concurrency: false }, () => {
             process.env.TRACK_VAR = 'tracked';
             process.chdir(fixturesDir);
 
-            const strictenv = require('../index');
-            const handle = strictenv.enableStrictEnv({ configPath: mainPkgPath });
+            const dotnope = require('../index');
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -283,7 +283,7 @@ describe('integration tests', { concurrency: false }, () => {
                 assert.strictEqual(stats['fake-package:TRACK_VAR'], 3);
             }
 
-            strictenv.disableStrictEnv();
+            dotnope.disableStrictEnv();
         } finally {
             cleanup(fixturesDir);
         }

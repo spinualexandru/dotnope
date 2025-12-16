@@ -6,7 +6,7 @@ const {
     getAccessStats,
     isEnabled,
     hasNativeModule
-} = require('./lib/strictenv');
+} = require('./lib/dotnope');
 
 module.exports = {
     enableStrictEnv,

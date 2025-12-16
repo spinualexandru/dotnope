@@ -6,33 +6,33 @@
 #include <mutex>
 
 /**
- * StrictEnvCache - High-performance native cache for environment variable access control
+ * DotnopeCache - High-performance native cache for environment variable access control
  *
  * Provides O(1) lookup for whitelist checking and thread-safe access tracking.
  */
-class StrictEnvCache : public Napi::ObjectWrap<StrictEnvCache> {
+class DotnopeCache : public Napi::ObjectWrap<DotnopeCache> {
 public:
     static Napi::Object Init(Napi::Env env, Napi::Object exports) {
-        Napi::Function func = DefineClass(env, "StrictEnvCache", {
-            InstanceMethod("setWhitelist", &StrictEnvCache::SetWhitelist),
-            InstanceMethod("isAllowed", &StrictEnvCache::IsAllowed),
-            InstanceMethod("addPeerDeps", &StrictEnvCache::AddPeerDeps),
-            InstanceMethod("trackAccess", &StrictEnvCache::TrackAccess),
-            InstanceMethod("getAccessCount", &StrictEnvCache::GetAccessCount),
-            InstanceMethod("clear", &StrictEnvCache::Clear),
-            InstanceMethod("getWhitelistSize", &StrictEnvCache::GetWhitelistSize)
+        Napi::Function func = DefineClass(env, "DotnopeCache", {
+            InstanceMethod("setWhitelist", &DotnopeCache::SetWhitelist),
+            InstanceMethod("isAllowed", &DotnopeCache::IsAllowed),
+            InstanceMethod("addPeerDeps", &DotnopeCache::AddPeerDeps),
+            InstanceMethod("trackAccess", &DotnopeCache::TrackAccess),
+            InstanceMethod("getAccessCount", &DotnopeCache::GetAccessCount),
+            InstanceMethod("clear", &DotnopeCache::Clear),
+            InstanceMethod("getWhitelistSize", &DotnopeCache::GetWhitelistSize)
         });
 
         Napi::FunctionReference* constructor = new Napi::FunctionReference();
         *constructor = Napi::Persistent(func);
         env.SetInstanceData(constructor);
 
-        exports.Set("StrictEnvCache", func);
+        exports.Set("DotnopeCache", func);
         return exports;
     }
 
-    StrictEnvCache(const Napi::CallbackInfo& info)
-        : Napi::ObjectWrap<StrictEnvCache>(info) {}
+    DotnopeCache(const Napi::CallbackInfo& info)
+        : Napi::ObjectWrap<DotnopeCache>(info) {}
 
 private:
     // Package name -> Set of allowed env var names
@@ -222,7 +222,7 @@ private:
 };
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    return StrictEnvCache::Init(env, exports);
+    return DotnopeCache::Init(env, exports);
 }
 
-NODE_API_MODULE(strictenv_native, Init)
+NODE_API_MODULE(dotnope_native, Init)

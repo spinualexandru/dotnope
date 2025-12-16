@@ -1,12 +1,12 @@
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const strictenv = require('./lib/strictenv.js');
+const dotnope = require('./lib/dotnope.js');
 
-export const enableStrictEnv = strictenv.enableStrictEnv;
-export const disableStrictEnv = strictenv.disableStrictEnv;
-export const getAccessStats = strictenv.getAccessStats;
-export const isEnabled = strictenv.isEnabled;
-export const hasNativeModule = strictenv.hasNativeModule;
+export const enableStrictEnv = dotnope.enableStrictEnv;
+export const disableStrictEnv = dotnope.disableStrictEnv;
+export const getAccessStats = dotnope.getAccessStats;
+export const isEnabled = dotnope.isEnabled;
+export const hasNativeModule = dotnope.hasNativeModule;
 
-export default strictenv;
+export default dotnope;
