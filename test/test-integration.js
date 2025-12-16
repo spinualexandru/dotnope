@@ -102,7 +102,7 @@ describe('integration tests', { concurrency: false }, () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
-            dotnope.enableStrictEnv({ configPath: mainPkgPath });
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -116,7 +116,8 @@ describe('integration tests', { concurrency: false }, () => {
                 return true;
             });
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
@@ -136,7 +137,7 @@ describe('integration tests', { concurrency: false }, () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
-            dotnope.enableStrictEnv({ configPath: mainPkgPath });
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -144,7 +145,8 @@ describe('integration tests', { concurrency: false }, () => {
             const value = fakePackage.getEnvVar('ALLOWED_VAR');
             assert.strictEqual(value, 'allowed-value');
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
@@ -165,7 +167,7 @@ describe('integration tests', { concurrency: false }, () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
-            dotnope.enableStrictEnv({ configPath: mainPkgPath });
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -182,7 +184,8 @@ describe('integration tests', { concurrency: false }, () => {
                 return true;
             });
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
@@ -197,7 +200,7 @@ describe('integration tests', { concurrency: false }, () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
-            dotnope.enableStrictEnv({ configPath: mainPkgPath });
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -211,7 +214,8 @@ describe('integration tests', { concurrency: false }, () => {
                 assert.ok(err.message.includes('"MY_SECRET"'), `Message should include env var name`);
             }
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
@@ -228,7 +232,7 @@ describe('integration tests', { concurrency: false }, () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
-            dotnope.enableStrictEnv({ configPath: mainPkgPath });
+            const handle = dotnope.enableStrictEnv({ configPath: mainPkgPath });
 
             delete require.cache[require.resolve(fakePackageDir)];
             const fakePackage = require(fakePackageDir);
@@ -241,7 +245,8 @@ describe('integration tests', { concurrency: false }, () => {
                 return true;
             });
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
@@ -277,7 +282,8 @@ describe('integration tests', { concurrency: false }, () => {
             assert.ok('fake-package:TRACK_VAR:read' in stats, 'Stats should contain fake-package:TRACK_VAR:read');
             assert.strictEqual(stats['fake-package:TRACK_VAR:read'], 3);
 
-            dotnope.disableStrictEnv();
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }
