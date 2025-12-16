@@ -7,6 +7,23 @@ native/node_modules
 # Build artifacts
 /build/
 native/build
+/prebuilds/
+
+# Generated files
+addon-manifest.json
+
+# Test fixtures (generated during tests)
+test/fixtures-*/
+
 # IDE
 .idea/
 *.swp
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
