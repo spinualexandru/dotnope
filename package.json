@@ -16,11 +16,16 @@
     }
   },
   "types": "index.d.ts",
+  "bin": {
+    "dotnope-run": "./bin/dotnope-run.js"
+  },
   "files": [
     "index.js",
     "index.mjs",
     "index.d.ts",
     "lib/",
+    "bin/",
+    "scripts/",
     "native/src/",
     "native/preload/",
     "binding.gyp"
@@ -28,8 +33,10 @@
   "scripts": {
     "test": "node --test 'test/**/*.js'",
     "build:native": "node-gyp rebuild",
+    "postbuild:native": "node scripts/generate-addon-manifest.js",
     "install": "node-gyp-build || true",
-    "prebuild": "prebuildify --napi --strip"
+    "prebuild": "prebuildify --napi --strip",
+    "generate-manifest": "node scripts/generate-addon-manifest.js"
   },
   "engines": {
     "node": ">=18.0.0"

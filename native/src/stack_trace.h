@@ -14,6 +14,15 @@ namespace dotnope {
 namespace StackTrace {
 
 /**
+ * Set the module's base path for internal file detection
+ * This allows the native addon to recognize dotnope's own files
+ * even when running from a development directory.
+ *
+ * @param basePath The absolute path to the module's root directory
+ */
+void SetModulePath(const std::string& basePath);
+
+/**
  * Capture the current stack trace
  *
  * Returns an array of stack frame objects with:

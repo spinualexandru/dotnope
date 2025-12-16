@@ -51,6 +51,14 @@ Napi::Value GetAsyncContext(const Napi::CallbackInfo& info);
  */
 bool IsEnabled();
 
+/**
+ * Get tracking statistics for debugging/monitoring
+ *
+ * @param info CallbackInfo (no parameters)
+ * @returns Object with trackedPromises, pendingCleanup, enabled, etc.
+ */
+Napi::Value GetStats(const Napi::CallbackInfo& info);
+
 } // namespace PromiseHooks
 } // namespace dotnope
 

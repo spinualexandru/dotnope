@@ -173,7 +173,11 @@ Enables environment variable protection. Returns a handle object.
 
 ```javascript
 const handle = dotnope.enableStrictEnv({
-    nativeMode: 'prefer'  // 'prefer' | 'require' | 'disable'
+    configPath: './package.json',    // Custom path to package.json
+    suppressWarnings: false,         // Suppress security warnings
+    verbose: false,                  // Show all warnings including info level
+    allowInWorker: false,            // Required for worker threads
+    workerConfig: null               // Config passed from main thread to workers
 });
 ```
 
@@ -187,8 +191,27 @@ const token = handle.getToken();
 handle.disable(token);
 
 // Get access statistics
-const stats = handle.getStats();
+const stats = handle.getAccessStats();
 // { "axios:HTTP_PROXY:read": 5, "dotenv:PORT:write": 2 }
+```
+
+### Utility Functions
+
+```javascript
+// Check if dotnope is currently enabled
+dotnope.isEnabled();
+
+// Check if LD_PRELOAD protection is active
+dotnope.isPreloadActive();
+
+// Emit security warnings (useful after enableStrictEnv)
+dotnope.emitSecurityWarnings({ forceWarnings: true });
+
+// Check if running in main thread (vs worker)
+dotnope.isRunningInMainThread();
+
+// Get serializable config for passing to workers
+dotnope.getSerializableConfig();
 ```
 
 ## Example
@@ -199,9 +222,42 @@ See [examples/](./examples) for a working demo with a fake malicious package.
 cd examples && node app.js
 ```
 
+## Worker Thread Support
+
+Worker threads require explicit opt-in for security:
+
+```javascript
+// Main thread
+const dotnope = require('dotnope');
+const handle = dotnope.enableStrictEnv();
+const workerConfig = dotnope.getSerializableConfig();
+
+// Pass config to worker via workerData
+const worker = new Worker('./worker.js', { workerData: { config: workerConfig } });
+```
+
+```javascript
+// worker.js
+const { workerData } = require('worker_threads');
+const dotnope = require('dotnope');
+
+dotnope.enableStrictEnv({
+    allowInWorker: true,
+    workerConfig: workerData.config
+});
+```
+
 ## Advanced: LD_PRELOAD Protection
 
 For protection against native C++ addons that call `getenv()` directly:
+
+### Using dotnope-run CLI (Recommended)
+
+```bash
+npx dotnope-run node app.js
+```
+
+### Manual LD_PRELOAD
 
 ```bash
 # Linux

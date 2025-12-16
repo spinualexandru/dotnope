@@ -39,9 +39,16 @@ Napi::Value IsWorkerThread(const Napi::CallbackInfo& info) {
 
 /**
  * Initialize the native module
+ * Accepts optional modulePath parameter for internal file detection
  */
 Napi::Value Initialize(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
+
+    // Check if module path was provided
+    if (info.Length() > 0 && info[0].IsString()) {
+        std::string modulePath = info[0].As<Napi::String>().Utf8Value();
+        StackTrace::SetModulePath(modulePath);
+    }
 
     // Register this isolate
     IsolateManager::RegisterIsolate();
@@ -85,6 +92,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("enablePromiseHooks", Napi::Function::New(env, PromiseHooks::Enable));
     exports.Set("disablePromiseHooks", Napi::Function::New(env, PromiseHooks::Disable));
     exports.Set("getAsyncContext", Napi::Function::New(env, PromiseHooks::GetAsyncContext));
+    exports.Set("getPromiseStats", Napi::Function::New(env, PromiseHooks::GetStats));
 
     // Isolate management
     exports.Set("getIsolateCount", Napi::Function::New(env, IsolateManager::GetIsolateCount));

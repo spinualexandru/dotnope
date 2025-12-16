@@ -1,0 +1,12 @@
+{
+  "name": "test-project",
+  "environmentWhitelist": {
+    "fake-package": {
+      "allowed": [
+        "*"
+      ],
+      "canWrite": [],
+      "canDelete": []
+    }
+  }
+}

@@ -9,6 +9,7 @@
 #include "stack_trace.h"
 #include <v8.h>
 #include <map>
+#include <set>
 #include <mutex>
 #include <string>
 
@@ -18,10 +19,37 @@ namespace PromiseHooks {
 // Thread-safe storage for promise attribution
 static std::mutex g_mutex;
 static std::map<void*, std::string> g_promiseOrigins;
+static std::set<void*> g_resolvedPromises;  // Track resolved promises for cleanup
 static bool g_enabled = false;
+
+// Cleanup configuration
+static const size_t CLEANUP_THRESHOLD = 1000;  // Clean up after this many resolved promises
+static const size_t MAX_TRACKED_PROMISES = 10000;  // Hard limit to prevent memory explosion
 
 // Current async context (thread-local would be better but this is simpler)
 static thread_local std::string g_currentContext = "__main__";
+
+/**
+ * Clean up resolved promises that are no longer needed
+ * Called when g_resolvedPromises exceeds threshold
+ */
+static void cleanupResolvedPromises() {
+    // Remove all resolved promises from the origins map
+    for (void* promiseId : g_resolvedPromises) {
+        g_promiseOrigins.erase(promiseId);
+    }
+    g_resolvedPromises.clear();
+}
+
+/**
+ * Emergency cleanup when we hit the hard limit
+ * This prevents unbounded memory growth
+ */
+static void emergencyCleanup() {
+    // Clear everything - better than OOM
+    g_promiseOrigins.clear();
+    g_resolvedPromises.clear();
+}
 
 /**
  * V8 Promise hook callback
@@ -94,9 +122,15 @@ static void PromiseHookCallback(
                 origin = "__main__";
             }
 
-            // Store the origin
+            // Store the origin with overflow protection
             {
                 std::lock_guard<std::mutex> lock(g_mutex);
+
+                // Emergency cleanup if we hit the hard limit
+                if (g_promiseOrigins.size() >= MAX_TRACKED_PROMISES) {
+                    emergencyCleanup();
+                }
+
                 g_promiseOrigins[promiseId] = origin;
             }
             break;
@@ -119,8 +153,15 @@ static void PromiseHookCallback(
         }
 
         case v8::PromiseHookType::kResolve: {
-            // Promise resolved - cleanup (optional, could keep for chaining)
-            // For now we keep the origin for potential child promises
+            // Promise resolved - mark for deferred cleanup
+            // We use deferred cleanup to allow child promises to inherit origin
+            std::lock_guard<std::mutex> lock(g_mutex);
+            g_resolvedPromises.insert(promiseId);
+
+            // Batch cleanup when threshold reached
+            if (g_resolvedPromises.size() >= CLEANUP_THRESHOLD) {
+                cleanupResolvedPromises();
+            }
             break;
         }
     }
@@ -169,14 +210,33 @@ void DisableInternal(Napi::Env env) {
         isolate->SetPromiseHook(nullptr);
     }
 
-    // Clear stored origins
+    // Clear stored origins and resolved promises
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_promiseOrigins.clear();
+        g_resolvedPromises.clear();
     }
 
     g_enabled = false;
     g_currentContext = "__main__";
+}
+
+/**
+ * Get tracking statistics (for debugging/monitoring)
+ */
+Napi::Value GetStats(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    std::lock_guard<std::mutex> lock(g_mutex);
+
+    Napi::Object stats = Napi::Object::New(env);
+    stats.Set("trackedPromises", Napi::Number::New(env, static_cast<double>(g_promiseOrigins.size())));
+    stats.Set("pendingCleanup", Napi::Number::New(env, static_cast<double>(g_resolvedPromises.size())));
+    stats.Set("enabled", Napi::Boolean::New(env, g_enabled));
+    stats.Set("cleanupThreshold", Napi::Number::New(env, static_cast<double>(CLEANUP_THRESHOLD)));
+    stats.Set("maxTrackedPromises", Napi::Number::New(env, static_cast<double>(MAX_TRACKED_PROMISES)));
+
+    return stats;
 }
 
 /**

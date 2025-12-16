@@ -10,18 +10,52 @@
 namespace dotnope {
 namespace StackTrace {
 
-// Internal path patterns to skip
+// Dynamic module base path (set during initialization)
+static std::string g_modulePath;
+
+// Internal file names to skip (relative to module root)
+static const char* INTERNAL_FILES[] = {
+    "/lib/proxy.js",
+    "/lib/stack-parser.js",
+    "/lib/dotnope.js",
+    "/lib/config-loader.js",
+    "/lib/dependency-resolver.js",
+    "/lib/native-bridge.js",
+    "/lib/preload-generator.js",
+    "/index.js",
+    "/index.mjs"
+};
+static const size_t INTERNAL_FILE_COUNT = sizeof(INTERNAL_FILES) / sizeof(INTERNAL_FILES[0]);
+
+// Fallback patterns for installed module (node_modules/dotnope/...)
 static const char* INTERNAL_PATTERNS[] = {
-    "dotnope/lib/",
-    "dotnope/native/",
-    "dotnope/index"
+    "node_modules/dotnope/lib/",
+    "node_modules/dotnope/index"
 };
 static const size_t INTERNAL_PATTERN_COUNT = sizeof(INTERNAL_PATTERNS) / sizeof(INTERNAL_PATTERNS[0]);
+
+/**
+ * Set the module's base path for internal file detection
+ */
+void SetModulePath(const std::string& basePath) {
+    g_modulePath = basePath;
+}
 
 /**
  * Check if a file path is internal to dotnope
  */
 static bool IsInternalPath(const std::string& path) {
+    // Check against dynamic module path if set
+    if (!g_modulePath.empty()) {
+        for (size_t i = 0; i < INTERNAL_FILE_COUNT; ++i) {
+            std::string fullPath = g_modulePath + INTERNAL_FILES[i];
+            if (path == fullPath) {
+                return true;
+            }
+        }
+    }
+
+    // Fallback to pattern matching for installed module
     for (size_t i = 0; i < INTERNAL_PATTERN_COUNT; ++i) {
         if (path.find(INTERNAL_PATTERNS[i]) != std::string::npos) {
             return true;
