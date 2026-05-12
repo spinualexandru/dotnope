@@ -69,28 +69,31 @@ const { parentPort, workerData } = require('worker_threads');
 
         const worker = new Worker(workerCode, {
             eval: true,
-            workerData
+            workerData,
+            execArgv: []
         });
 
+        const timeout = setTimeout(() => {
+            worker.terminate();
+            reject(new Error('Worker timed out'));
+        }, 5000);
+
         worker.on('message', (msg) => {
+            clearTimeout(timeout);
             resolve(msg);
         });
 
         worker.on('error', (err) => {
+            clearTimeout(timeout);
             reject(err);
         });
 
         worker.on('exit', (code) => {
+            clearTimeout(timeout);
             if (code !== 0) {
                 reject(new Error(`Worker exited with code ${code}`));
             }
         });
-
-        // Timeout after 5 seconds
-        setTimeout(() => {
-            worker.terminate();
-            reject(new Error('Worker timed out'));
-        }, 5000);
     });
 }
 
@@ -155,8 +158,6 @@ describe('Worker Thread Protection', () => {
             process.env.WORKER_TEST_VAR = 'worker-value';
 
             const dotnopeModulePath = path.resolve(__dirname, '../index.js');
-            const configLoaderPath = path.resolve(__dirname, '../lib/config-loader.js');
-
             // Load config in main thread to pass to worker
             const dotnope = require('../index');
             process.chdir(fixturesDir);
@@ -171,39 +172,109 @@ describe('Worker Thread Protection', () => {
             const token = handle.getToken();
             handle.disable(token);
 
-            const result = await runInWorker(`
-                const dotnope = require(${JSON.stringify(dotnopeModulePath)});
-                const workerConfig = workerData.config;
+            const workerPath = path.join(fixturesDir, 'explicit-worker.js');
+            fs.writeFileSync(workerPath, `
+'use strict';
+const { parentPort, workerData } = require('worker_threads');
+const dotnope = require(workerData.dotnopeModulePath);
 
-                try {
-                    const handle = dotnope.enableStrictEnv({
-                        strictLoadOrder: false,
-                        allowInWorker: true,
-                        workerConfig: workerConfig,
-                        suppressWarnings: true
-                    });
+try {
+    const handle = dotnope.enableStrictEnv({
+        strictLoadOrder: false,
+        allowInWorker: true,
+        workerConfig: workerData.config,
+        suppressWarnings: true
+    });
 
-                    // Main app should have access
-                    const value = process.env.WORKER_TEST_VAR;
+    const value = process.env.WORKER_TEST_VAR;
 
-                    const token = handle.getToken();
-                    handle.disable(token);
+    const token = handle.getToken();
+    handle.disable(token);
 
-                    parentPort.postMessage({
-                        success: true,
-                        value: value
-                    });
-                } catch (err) {
-                    parentPort.postMessage({
-                        success: false,
-                        error: err.message,
-                        code: err.code
-                    });
-                }
-            `, { config: workerConfig });
+    parentPort.postMessage({
+        success: true,
+        value: value
+    });
+} catch (err) {
+    parentPort.postMessage({
+        success: false,
+        error: err.message,
+        code: err.code
+    });
+}
+`);
+
+            const result = await new Promise((resolve, reject) => {
+                const worker = new Worker(workerPath, {
+                    workerData: {
+                        config: workerConfig,
+                        dotnopeModulePath
+                    },
+                    execArgv: []
+                });
+
+                worker.on('message', resolve);
+                worker.on('error', reject);
+                worker.on('exit', (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`Worker exited with code ${code}`));
+                    }
+                });
+            });
 
             assert.strictEqual(result.success, true,
                 `Should succeed with allowInWorker: ${result.error || ''}`);
+        } finally {
+            cleanup(fixturesDir);
+        }
+    });
+
+    test('should auto-protect workers created after enableStrictEnv', async () => {
+        const fixturesDir = getUniqueFixturesDir();
+        try {
+            const { mainPkgPath } = setupMockProject(fixturesDir, {});
+            const packageDir = path.join(fixturesDir, 'node_modules', 'evil-package');
+            fs.mkdirSync(packageDir, { recursive: true });
+            const workerPath = path.join(packageDir, 'worker.js');
+            fs.writeFileSync(workerPath, `
+'use strict';
+const { parentPort } = require('worker_threads');
+
+try {
+    const value = process.env.DOTNOPE_WORKER_SECRET;
+    parentPort.postMessage({ success: false, value });
+} catch (err) {
+    parentPort.postMessage({ success: true, code: err.code });
+}
+`);
+
+            process.env.DOTNOPE_WORKER_SECRET = 'worker-secret';
+            process.env.WATCH_REPORT_DEPENDENCIES = '1';
+
+            const dotnope = require('../index');
+            const { Worker: CapturedWorker } = require('worker_threads');
+            const handle = dotnope.enableStrictEnv({
+                strictLoadOrder: false,
+                configPath: mainPkgPath,
+                suppressWarnings: true
+            });
+
+            const result = await new Promise((resolve, reject) => {
+                const worker = new CapturedWorker(workerPath, { execArgv: [] });
+                worker.on('message', resolve);
+                worker.on('error', reject);
+                worker.on('exit', (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`Worker exited with code ${code}`));
+                    }
+                });
+            });
+
+            assert.strictEqual(result.success, true, 'Worker env access should be blocked');
+            assert.strictEqual(result.code, 'ERR_DOTNOPE_UNAUTHORIZED');
+
+            const token = handle.getToken();
+            handle.disable(token);
         } finally {
             cleanup(fixturesDir);
         }

@@ -1,6 +1,6 @@
 {
   "name": "dotnope",
-  "version": "2.2.1",
+  "version": "2.2.3",
   "author": "Alex Spinu",
   "repository": {
     "type": "git",
@@ -41,7 +41,7 @@
     "generate-manifest": "node scripts/generate-addon-manifest.js"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "^20.17.0 || >=22.9.0"
   },
   "keywords": [
     "environment",
@@ -58,8 +58,7 @@
     "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {
-    "node-gyp": "^10.0.0",
+    "node-gyp": "^12.3.0",
     "prebuildify": "^6.0.0"
-  },
-  "optionalDependencies": {}
+  }
 }

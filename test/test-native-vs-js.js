@@ -336,6 +336,7 @@ describe('Security Warnings', () => {
             process.chdir(fixturesDir);
 
             const dotnope = require('../index');
+            consoleWarnCalls = [];
             const handle = dotnope.enableStrictEnv({ strictLoadOrder: false,
                 configPath: mainPkgPath,
                 suppressWarnings: true
@@ -398,8 +399,9 @@ describe('Preload Generator', () => {
 
         const policy = preloadGen.generatePolicy(config);
 
-        // dotenv has wildcard, so should return '*'
-        assert.strictEqual(policy, '*', 'Wildcard should propagate to policy');
+        assert.ok(policy.includes('axios=HTTPS_PROXY|HTTP_PROXY'), 'Should keep axios vars scoped to axios');
+        assert.ok(policy.includes('dotenv=*'), 'Wildcard should stay scoped to dotenv');
+        assert.ok(!policy.split(';').includes('*'), 'Wildcard should not become a global policy');
     });
 
     test('should generate policy without wildcards', () => {
@@ -412,11 +414,25 @@ describe('Preload Generator', () => {
 
         const policy = preloadGen.generatePolicy(config);
 
-        // Should be sorted, comma-separated
-        assert.ok(policy.includes('HTTP_PROXY'), 'Should include HTTP_PROXY');
-        assert.ok(policy.includes('HTTPS_PROXY'), 'Should include HTTPS_PROXY');
-        assert.ok(policy.includes('NODE_ENV'), 'Should include NODE_ENV');
-        assert.ok(policy.includes('LOG_LEVEL'), 'Should include LOG_LEVEL');
+        assert.ok(policy.includes('axios=HTTPS_PROXY|HTTP_PROXY'), 'Should include scoped axios vars');
+        assert.ok(policy.includes('config=CONFIG_PATH|LOG_LEVEL|NODE_ENV'), 'Should include scoped config vars');
+    });
+
+    test('should not include delete-only vars in native policy', () => {
+        const preloadGen = require('../lib/preload-generator');
+
+        const config = {
+            'native-addon': {
+                allowed: ['READABLE_VAR'],
+                canWrite: [],
+                canDelete: ['DELETE_ONLY_SECRET']
+            }
+        };
+
+        const policy = preloadGen.generatePolicy(config);
+
+        assert.strictEqual(policy, 'native-addon=READABLE_VAR');
+        assert.ok(!policy.includes('DELETE_ONLY_SECRET'), 'Delete-only vars must not become native read permissions');
     });
 
     test('should find preload library path', () => {

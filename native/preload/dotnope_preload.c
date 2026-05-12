@@ -30,7 +30,7 @@ static char* (*real_getenv)(const char*) = NULL;
 static int (*real_setenv)(const char*, const char*, int) = NULL;
 static int (*real_unsetenv)(const char*) = NULL;
 
-/* File access functions for /proc/*/environ protection */
+/* File access functions for proc environ protection */
 static int (*real_open)(const char*, int, ...) = NULL;
 static int (*real_openat)(int, const char*, int, ...) = NULL;
 static FILE* (*real_fopen)(const char*, const char*) = NULL;
@@ -41,10 +41,19 @@ static int (*real___open_2)(const char*, int) = NULL;  /* FORTIFY_SOURCE variant
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t policy_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Simple allow list (expandable via shared memory or socket) */
+/* Scoped allow list (expandable via shared memory or socket) */
 #define MAX_ALLOWED_VARS 256
+#define MAX_POLICY_PACKAGES 128
+#define MAX_PACKAGE_NAME 256
 static char* allowed_vars[MAX_ALLOWED_VARS];
 static int allowed_count = 0;
+typedef struct {
+    char* package_name;
+    char* allowed_vars[MAX_ALLOWED_VARS];
+    int allowed_count;
+} package_policy_t;
+static package_policy_t package_policies[MAX_POLICY_PACKAGES];
+static int package_policy_count = 0;
 static int policy_loaded = 0;
 
 /* Logging */
@@ -62,9 +71,98 @@ static void log_access(const char* op, const char* name, int allowed) {
     fflush(log_file);
 }
 
+static char* trim_token(char* token) {
+    while (*token == ' ') token++;
+    char* end = token + strlen(token);
+    while (end > token && *(end - 1) == ' ') {
+        end--;
+        *end = '\0';
+    }
+    return token;
+}
+
+static void add_legacy_allowed_var(const char* name) {
+    if (allowed_count < MAX_ALLOWED_VARS && name && *name) {
+        allowed_vars[allowed_count++] = strdup(name);
+    }
+}
+
+static package_policy_t* add_package_policy(const char* package_name) {
+    if (package_policy_count >= MAX_POLICY_PACKAGES || !package_name || !*package_name) {
+        return NULL;
+    }
+
+    package_policy_t* policy = &package_policies[package_policy_count++];
+    policy->package_name = strdup(package_name);
+    policy->allowed_count = 0;
+    return policy;
+}
+
+static void add_package_allowed_var(package_policy_t* policy, const char* name) {
+    if (policy && policy->allowed_count < MAX_ALLOWED_VARS && name && *name) {
+        policy->allowed_vars[policy->allowed_count++] = strdup(name);
+    }
+}
+
+static void extract_package_from_path(const char* path, char* out, size_t out_size) {
+    if (!path || !*path) {
+        snprintf(out, out_size, "__unknown__");
+        return;
+    }
+
+    const char* marker = "/node_modules/";
+    const char* match = NULL;
+    const char* cursor = path;
+
+    while ((cursor = strstr(cursor, marker)) != NULL) {
+        match = cursor;
+        cursor += strlen(marker);
+    }
+
+    if (!match) {
+        snprintf(out, out_size, "__main__");
+        return;
+    }
+
+    const char* start = match + strlen(marker);
+    if (strncmp(start, ".pnpm/", 6) == 0) {
+        const char* nested = strstr(start, "/node_modules/");
+        if (nested) {
+            start = nested + strlen(marker);
+        }
+    }
+
+    const char* end = NULL;
+    if (start[0] == '@') {
+        const char* first_slash = strchr(start, '/');
+        end = first_slash ? strchr(first_slash + 1, '/') : NULL;
+    } else {
+        end = strchr(start, '/');
+    }
+
+    size_t len = end ? (size_t)(end - start) : strlen(start);
+    if (len >= out_size) {
+        len = out_size - 1;
+    }
+
+    memcpy(out, start, len);
+    out[len] = '\0';
+}
+
+static void get_calling_package(void* caller, char* out, size_t out_size) {
+    Dl_info info;
+
+    if (caller && dladdr(caller, &info) && info.dli_fname) {
+        extract_package_from_path(info.dli_fname, out, out_size);
+        return;
+    }
+
+    snprintf(out, out_size, "__unknown__");
+}
+
 /**
  * Load policy from environment variable or file
- * Format: comma-separated list of allowed variables, or "*" for all
+ * Format: package=VAR1|VAR2;other-package=*, or legacy comma list
  */
 static void load_policy(void) {
     if (policy_loaded) return;
@@ -93,8 +191,7 @@ static void load_policy(void) {
 
     if (!policy || !*policy) {
         /* No policy - allow all (for compatibility) */
-        allowed_vars[0] = strdup("*");
-        allowed_count = 1;
+        add_legacy_allowed_var("*");
         policy_loaded = 1;
         pthread_mutex_unlock(&policy_mutex);
         return;
@@ -102,25 +199,43 @@ static void load_policy(void) {
 
     /* Parse policy */
     char* policy_copy = strdup(policy);
-    char* token = strtok(policy_copy, ",");
+    if (strchr(policy_copy, '=') == NULL) {
+        char* saveptr = NULL;
+        char* token = strtok_r(policy_copy, ",", &saveptr);
 
-    while (token && allowed_count < MAX_ALLOWED_VARS) {
-        /* Trim whitespace */
-        while (*token == ' ') token++;
-        char* end = token + strlen(token) - 1;
-        while (end > token && *end == ' ') *end-- = '\0';
-
-        if (*token) {
-            allowed_vars[allowed_count++] = strdup(token);
+        while (token && allowed_count < MAX_ALLOWED_VARS) {
+            add_legacy_allowed_var(trim_token(token));
+            token = strtok_r(NULL, ",", &saveptr);
         }
-        token = strtok(NULL, ",");
+    } else {
+        char* package_saveptr = NULL;
+        char* package_entry = strtok_r(policy_copy, ";", &package_saveptr);
+
+        while (package_entry && package_policy_count < MAX_POLICY_PACKAGES) {
+            char* equals = strchr(package_entry, '=');
+            if (equals) {
+                *equals = '\0';
+                char* package_name = trim_token(package_entry);
+                char* vars = equals + 1;
+                package_policy_t* package_policy = add_package_policy(package_name);
+
+                char* var_saveptr = NULL;
+                char* var_name = strtok_r(vars, "|", &var_saveptr);
+                while (var_name && package_policy && package_policy->allowed_count < MAX_ALLOWED_VARS) {
+                    add_package_allowed_var(package_policy, trim_token(var_name));
+                    var_name = strtok_r(NULL, "|", &var_saveptr);
+                }
+            }
+            package_entry = strtok_r(NULL, ";", &package_saveptr);
+        }
     }
 
     free(policy_copy);
     policy_loaded = 1;
 
     if (log_enabled) {
-        fprintf(log_file, "[dotnope_preload] Loaded policy with %d allowed vars\n", allowed_count);
+        fprintf(log_file, "[dotnope_preload] Loaded policy with %d scoped packages and %d legacy vars\n",
+                package_policy_count, allowed_count);
         fflush(log_file);
     }
 
@@ -130,7 +245,7 @@ static void load_policy(void) {
 /**
  * Check if a variable is allowed
  */
-static int is_allowed(const char* name) {
+static int is_allowed(const char* name, void* caller) {
     if (!policy_loaded) {
         load_policy();
     }
@@ -147,6 +262,9 @@ static int is_allowed(const char* name) {
         return 1;
     }
 
+    char package_name[MAX_PACKAGE_NAME];
+    get_calling_package(caller, package_name, sizeof(package_name));
+
     pthread_mutex_lock(&policy_mutex);
 
     for (int i = 0; i < allowed_count; i++) {
@@ -160,12 +278,27 @@ static int is_allowed(const char* name) {
         }
     }
 
+    for (int i = 0; i < package_policy_count; i++) {
+        package_policy_t* policy = &package_policies[i];
+        if (strcmp(policy->package_name, package_name) != 0) {
+            continue;
+        }
+
+        for (int j = 0; j < policy->allowed_count; j++) {
+            if (strcmp(policy->allowed_vars[j], "*") == 0 ||
+                strcmp(policy->allowed_vars[j], name) == 0) {
+                pthread_mutex_unlock(&policy_mutex);
+                return 1;
+            }
+        }
+    }
+
     pthread_mutex_unlock(&policy_mutex);
     return 0;
 }
 
 /**
- * Check if a path is protected (e.g., /proc/*/environ)
+ * Check if a path is protected, such as proc environ files
  * This prevents native code from reading environment variables directly from /proc
  */
 static int is_protected_path(const char* path) {
@@ -226,7 +359,7 @@ char* getenv(const char* name) {
 
     if (!name) return NULL;
 
-    int allowed = is_allowed(name);
+    int allowed = is_allowed(name, __builtin_return_address(0));
     log_access("getenv", name, allowed);
 
     if (!allowed) {
@@ -247,7 +380,7 @@ int setenv(const char* name, const char* value, int overwrite) {
         return -1;
     }
 
-    int allowed = is_allowed(name);
+    int allowed = is_allowed(name, __builtin_return_address(0));
     log_access("setenv", name, allowed);
 
     if (!allowed) {
@@ -269,7 +402,7 @@ int unsetenv(const char* name) {
         return -1;
     }
 
-    int allowed = is_allowed(name);
+    int allowed = is_allowed(name, __builtin_return_address(0));
     log_access("unsetenv", name, allowed);
 
     if (!allowed) {
@@ -281,7 +414,7 @@ int unsetenv(const char* name) {
 }
 
 /**
- * Hooked open - block /proc/*/environ access
+ * Hooked open - block proc environ access
  */
 int open(const char* pathname, int flags, ...) {
     pthread_once(&init_once, init_real_functions);
@@ -362,7 +495,7 @@ int __open_2(const char* pathname, int flags) {
 }
 
 /**
- * Hooked openat - block /proc/*/environ via dirfd-relative paths
+ * Hooked openat - block proc environ via dirfd-relative paths
  */
 int openat(int dirfd, const char* pathname, int flags, ...) {
     pthread_once(&init_once, init_real_functions);
@@ -390,7 +523,7 @@ int openat(int dirfd, const char* pathname, int flags, ...) {
 }
 
 /**
- * Hooked fopen - block /proc/*/environ via stdio
+ * Hooked fopen - block proc environ via stdio
  */
 FILE* fopen(const char* pathname, const char* mode) {
     pthread_once(&init_once, init_real_functions);
@@ -430,7 +563,7 @@ FILE* fopen64(const char* pathname, const char* mode) {
 }
 
 /**
- * Hooked access - block checking if /proc/*/environ exists
+ * Hooked access - block checking if proc environ exists
  */
 int access(const char* pathname, int mode) {
     pthread_once(&init_once, init_real_functions);
@@ -469,6 +602,17 @@ static void dotnope_preload_cleanup(void) {
         allowed_vars[i] = NULL;
     }
     allowed_count = 0;
+
+    for (int i = 0; i < package_policy_count; i++) {
+        free(package_policies[i].package_name);
+        package_policies[i].package_name = NULL;
+        for (int j = 0; j < package_policies[i].allowed_count; j++) {
+            free(package_policies[i].allowed_vars[j]);
+            package_policies[i].allowed_vars[j] = NULL;
+        }
+        package_policies[i].allowed_count = 0;
+    }
+    package_policy_count = 0;
 
     if (log_file && log_file != stderr) {
         fclose(log_file);
