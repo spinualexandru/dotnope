@@ -1,6 +1,6 @@
 {
   "name": "dotnope",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "author": "Alex Spinu",
   "repository": {
     "type": "git",
@@ -58,8 +58,7 @@
     "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {
-    "node-gyp": "^10.0.0",
+    "node-gyp": "^12.3.0",
     "prebuildify": "^6.0.0"
-  },
-  "optionalDependencies": {}
+  }
 }

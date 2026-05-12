@@ -122,6 +122,45 @@ static std::string V8StringToStd(v8::Isolate* isolate, v8::Local<v8::String> v8S
 }
 
 /**
+ * Check if a stack frame indicates eval or Function constructor execution.
+ */
+static bool IsEvalFrame(v8::Isolate* isolate, v8::Local<v8::StackFrame> frame) {
+    if (frame->IsEval()) {
+        return true;
+    }
+
+    std::string functionName = V8StringToStd(isolate, frame->GetFunctionName());
+    if (functionName == "eval" ||
+        functionName == "Function" ||
+        functionName.find("eval") != std::string::npos ||
+        functionName.find("Function") != std::string::npos) {
+        return true;
+    }
+
+    std::string scriptName = V8StringToStd(isolate, frame->GetScriptName());
+    return scriptName.rfind("eval at", 0) == 0 ||
+           scriptName.rfind("[eval]", 0) == 0 ||
+           scriptName.rfind("<anonymous>", 0) == 0 ||
+           scriptName.rfind("evalmachine.", 0) == 0;
+}
+
+/**
+ * Scan the captured stack for eval or Function constructor indicators.
+ */
+static bool HasEvalInStack(v8::Isolate* isolate, v8::Local<v8::StackTrace> stack) {
+    int frameCount = stack->GetFrameCount();
+
+    for (int i = 0; i < frameCount; ++i) {
+        v8::Local<v8::StackFrame> frame = stack->GetFrame(isolate, i);
+        if (!frame.IsEmpty() && IsEvalFrame(isolate, frame)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
  * Capture the current stack trace using V8 API
  */
 Napi::Value Capture(const Napi::CallbackInfo& info) {
@@ -187,7 +226,7 @@ Napi::Value Capture(const Napi::CallbackInfo& info) {
         frameObj.Set("functionName", Napi::String::New(env, functionName));
         frameObj.Set("lineNumber", Napi::Number::New(env, frame->GetLineNumber()));
         frameObj.Set("columnNumber", Napi::Number::New(env, frame->GetColumn()));
-        frameObj.Set("isEval", Napi::Boolean::New(env, frame->IsEval()));
+        frameObj.Set("isEval", Napi::Boolean::New(env, IsEvalFrame(isolate, frame)));
         frameObj.Set("isConstructor", Napi::Boolean::New(env, frame->IsConstructor()));
 
         // Extract package name
@@ -233,6 +272,7 @@ Napi::Value GetCallerInfo(const Napi::CallbackInfo& info) {
     }
 
     int frameCount = stack->GetFrameCount();
+    bool evalDetectedInStack = HasEvalInStack(isolate, stack);
 
     for (int i = skipFrames; i < frameCount; ++i) {
         v8::Local<v8::StackFrame> frame = stack->GetFrame(isolate, i);
@@ -276,7 +316,7 @@ Napi::Value GetCallerInfo(const Napi::CallbackInfo& info) {
         result.Set("lineNumber", Napi::Number::New(env, frame->GetLineNumber()));
         result.Set("columnNumber", Napi::Number::New(env, frame->GetColumn()));
         result.Set("functionName", Napi::String::New(env, functionName));
-        result.Set("isEval", Napi::Boolean::New(env, frame->IsEval()));
+        result.Set("isEval", Napi::Boolean::New(env, IsEvalFrame(isolate, frame) || evalDetectedInStack));
         result.Set("isConstructor", Napi::Boolean::New(env, frame->IsConstructor()));
 
         return result;

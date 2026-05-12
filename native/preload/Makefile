@@ -26,5 +26,5 @@ install: $(TARGET)
 	@echo "  LD_PRELOAD=/usr/local/lib/$(TARGET) node app.js"
 	@echo ""
 	@echo "Configuration:"
-	@echo "  DOTNOPE_POLICY=VAR1,VAR2,*  (comma-separated allowed vars)"
+	@echo "  DOTNOPE_POLICY=package=VAR1|VAR2;other-package=*"
 	@echo "  DOTNOPE_LOG=1|stderr|/path  (enable logging)"

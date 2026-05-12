@@ -463,6 +463,41 @@ describe('Security Tests', { concurrency: false }, () => {
     });
 
     describe('Eval/Function Protection', () => {
+        test('should block eval and Function access from main app files', () => {
+            const fixturesDir = getUniqueFixturesDir();
+            let handle = null;
+            try {
+                const { mainPkgPath } = setupMockProject(fixturesDir, {
+                    '__options__': {
+                        failClosed: true
+                    }
+                });
+
+                process.env.MAIN_EVAL_TARGET = 'main-eval-secret';
+                process.env.MAIN_FUNCTION_TARGET = 'main-function-secret';
+                process.chdir(fixturesDir);
+
+                const dotnope = require('../index');
+                handle = dotnope.enableStrictEnv({ strictLoadOrder: false, configPath: mainPkgPath });
+
+                assert.throws(
+                    () => eval('process.env.MAIN_EVAL_TARGET'),
+                    (err) => err.code === 'ERR_DOTNOPE_EVAL_CONTEXT'
+                );
+
+                assert.throws(
+                    () => new Function('return process.env.MAIN_FUNCTION_TARGET')(),
+                    (err) => err.code === 'ERR_DOTNOPE_EVAL_CONTEXT'
+                );
+            } finally {
+                if (handle) {
+                    const token = handle.getToken();
+                    handle.disable(token);
+                }
+                cleanup(fixturesDir);
+            }
+        });
+
         test('should block eval-based env access when detected', () => {
             const fixturesDir = getUniqueFixturesDir();
             try {
@@ -840,8 +875,8 @@ describe('Security Tests', { concurrency: false }, () => {
         });
     });
 
-    describe('Same Handle on Multiple Calls', () => {
-        test('should return same handle on repeated enableStrictEnv calls', () => {
+    describe('Limited Handle on Multiple Calls', () => {
+        test('should not return the owner handle on repeated enableStrictEnv calls', () => {
             const fixturesDir = getUniqueFixturesDir();
             try {
                 const { mainPkgPath } = setupMockProject(fixturesDir, {});
@@ -852,14 +887,19 @@ describe('Security Tests', { concurrency: false }, () => {
                     strictLoadOrder: false
                 });
 
-                // Second call should return the SAME handle object
+                // Second call must not expose the token-bearing owner handle.
                 const handle2 = dotnope.enableStrictEnv({
                     configPath: mainPkgPath,
                     strictLoadOrder: false
                 });
 
-                assert.strictEqual(handle1, handle2, 'Should return same handle object');
-                assert.strictEqual(handle1.getToken(), handle2.getToken(), 'Tokens should match');
+                assert.notStrictEqual(handle1, handle2, 'Should return a limited observer handle');
+                assert.strictEqual(typeof handle2.getToken, 'undefined', 'Repeated callers must not receive token access');
+                assert.throws(
+                    () => handle2.disable(handle1.getToken()),
+                    /already owned by another caller/,
+                    'Repeated callers must not be able to disable protection'
+                );
 
                 // Clean up
                 const token = handle1.getToken();

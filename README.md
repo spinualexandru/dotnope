@@ -298,7 +298,7 @@ This creates `libdotnope_preload.so` in the `native/preload/` directory.
 ```bash
 # Linux - using local build
 LD_PRELOAD=./native/preload/libdotnope_preload.so \
-DOTNOPE_POLICY="AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,NODE_ENV" \
+DOTNOPE_POLICY="dotenv=*;axios=HTTP_PROXY|HTTPS_PROXY" \
 node app.js
 
 # Linux - using installed library
@@ -312,13 +312,13 @@ DYLD_INSERT_LIBRARIES=/path/to/libdotnope_preload.dylib node app.js
 
 | Environment Variable | Description |
 |---------------------|-------------|
-| `DOTNOPE_POLICY` | Comma-separated list of allowed env vars (use `*` for all) |
+| `DOTNOPE_POLICY` | Semicolon-separated package policies, for example `package=VAR1|VAR2;other-package=*` |
 | `DOTNOPE_LOG` | Enable logging: `1`, `stderr`, or a file path |
 
 ```bash
 # Example: Only allow specific vars, log blocked access
 LD_PRELOAD=./native/preload/libdotnope_preload.so \
-DOTNOPE_POLICY="NODE_ENV,PORT,DATABASE_URL" \
+DOTNOPE_POLICY="config=NODE_ENV|PORT|DATABASE_URL" \
 DOTNOPE_LOG=stderr \
 node app.js
 ```

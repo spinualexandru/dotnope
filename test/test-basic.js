@@ -88,9 +88,14 @@ describe('dotnope', () => {
                 try {
                     const dotnope = require('../index');
                     const handle = dotnope.enableStrictEnv({ strictLoadOrder: false, configPath: pkgPath });
-                    dotnope.enableStrictEnv({ strictLoadOrder: false, configPath: pkgPath });
+                    const repeatedHandle = dotnope.enableStrictEnv({ strictLoadOrder: false, configPath: pkgPath });
 
                     assert.ok(warnMessages.some(m => m.includes('Already enabled')));
+                    assert.strictEqual(typeof repeatedHandle.getToken, 'undefined');
+                    assert.throws(
+                        () => repeatedHandle.disable(),
+                        /already owned by another caller/
+                    );
 
                     const token = handle.getToken();
                     handle.disable(token);
