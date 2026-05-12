@@ -252,15 +252,15 @@ try {
             process.env.WATCH_REPORT_DEPENDENCIES = '1';
 
             const dotnope = require('../index');
+            const { Worker: CapturedWorker } = require('worker_threads');
             const handle = dotnope.enableStrictEnv({
                 strictLoadOrder: false,
                 configPath: mainPkgPath,
                 suppressWarnings: true
             });
 
-            const { Worker: ProtectedWorker } = require('worker_threads');
             const result = await new Promise((resolve, reject) => {
-                const worker = new ProtectedWorker(workerPath, { execArgv: [] });
+                const worker = new CapturedWorker(workerPath, { execArgv: [] });
                 worker.on('message', resolve);
                 worker.on('error', reject);
                 worker.on('exit', (code) => {
